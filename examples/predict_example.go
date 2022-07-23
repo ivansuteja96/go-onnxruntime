@@ -18,6 +18,9 @@ func main() {
 		log.Println(err)
 		return
 	}
+	ortEnvDet.Close()
+	ortDetSO.Close()
+	defer detModel.Close()
 
 	shape := []int64{3, 4, 5}
 	input := randFloats(0, 1, int(shape[0]*shape[1]*shape[2]))
