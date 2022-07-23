@@ -1,0 +1,49 @@
+FROM ubuntu:20.04
+LABEL maintainer="Ivan Suteja <ivan.suteja@tokopedia.com>"
+
+ARG GO_VERSION=1.14.15
+ARG ONNXRUNTIME_VERSION=1.11.1
+ARG ONNX_VERSION=1.12.0
+
+# DEFINE ALL ENV
+ENV GOROOT=/usr/local/go
+ENV GOPATH=/workspace/go
+ENV GOBIN=$GOPATH/bin
+ENV PATH=$GOPATH/bin:$GOROOT/bin:$PATH
+ENV LD_LIBRARY_PATH=/usr/local/lib
+ENV LIBRARY_PATH=/usr/local/lib
+ENV DYLD_LIBRARY_PATH=/usr/local/lib
+ENV DEBIAN_FRONTEND="noninteractive"
+ENV TZ=Asia/Jakarta
+
+# UPDATE AND INSTALL ALL REQUIRED DEPENDECIES
+RUN apt-get update -y
+RUN apt-get install -y wget build-essential
+
+# INSTALL GO
+RUN cd /tmp && \
+    wget https://dl.google.com/go/go${GO_VERSION}.linux-arm64.tar.gz && \
+    tar -C /usr/local -xvf go${GO_VERSION}.linux-arm64.tar.gz && \
+    rm -rf go${GO_VERSION}.linux-arm64.tar.gz && \
+    mkdir -p /workspace/go/src && mkdir -p /workspace/go/bin && mkdir -p /workspace/go/pkg
+
+# INSTALL ONNXRUNTIME
+RUN cd /tmp && \
+wget -O onnxruntime.tgz https://github.com/microsoft/onnxruntime/releases/download/v${ONNXRUNTIME_VERSION}/onnxruntime-linux-aarch64-${ONNXRUNTIME_VERSION}.tgz && \
+tar -C /tmp -xvf onnxruntime.tgz && \
+mv onnxruntime-linux-aarch64-${ONNXRUNTIME_VERSION} onnxruntime && \
+rm -rf onnxruntime.tgz && \
+cp -R onnxruntime/lib /usr/local && \
+cp -R onnxruntime/include /usr/local && \
+rm -rf onnxruntime
+
+# DOWNLOAD MODEL
+RUN cd /tmp && mkdir model && cd model && \
+wget -O model.onnx https://github.com/onnx/onnx/raw/v${ONNX_VERSION}/onnx/backend/test/data/node/test_sigmoid/model.onnx
+
+# COPY REPO go-onnxruntime
+COPY . $GOPATH/src/github.com/ivansuteja96/go-onnxruntime
+
+# RUN go-onnxruntime
+RUN cd $GOPATH/src/github.com/ivansuteja96/go-onnxruntime/examples && \
+    go run predict_example.go
