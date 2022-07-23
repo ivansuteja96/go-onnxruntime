@@ -4,7 +4,7 @@ This is used to perform onnx model inference in Go.
 
 ## Installation
 
-Download and install go-onnxruntime:
+Download and install go-onnxruntime :
 
 ```
 go get -v github.com/ivansuteja96/go-onnxruntime
@@ -25,26 +25,19 @@ The Onnxruntime C++ header files are expected to be under `/usrl/local/include`.
 
 ### Configure Environmental Variables
 
-Configure the linker environmental variables since the Onnxruntime C++ library is under a non-system directory. Place the following in either your `~/.bashrc` or `~/.zshrc` file:
+Configure the linker environmental variables since the Onnxruntime C++ library is under a non-system directory. Place the following in either your `~/.bashrc` or `~/.zshrc` file :
 
-Linux (.bashrc)
+Linux (.bashrc) / macOS (.zshrc)
 ```
 export LIBRARY_PATH=$LIBRARY_PATH:/usr/local/lib
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
-
 ```
 
-macOS (.zshrc)
-```
-export LIBRARY_PATH=$LIBRARY_PATH:/usr/local/lib
-export DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:/usr/local/lib
-```
-
-After that please run either `source ~/.bashrc`(linux) or `source ~/.zshrc`(mac).
+After that please run either `source ~/.bashrc`(linux) or `source ~/.zshrc`(macOS).
 
 ## How to Run
 
-For the quick experience you can run go-onnxruntime using this command
+For the quick experience you can run go-onnxruntime using this command :
 ```
     docker build --platform linux/arm64/v8 -f dockerfile/Dockerfile_ubuntu_arm64_example -t go-onnxruntime .
     docker run --rm -it  go-onnxruntime:latest 
@@ -55,8 +48,8 @@ For the quick experience you can run go-onnxruntime using this command
 
 ## Examples
 
-Examples of using the Go Onnxruntime binding to do model inference are under [examples](examples) .
+Examples of using the Go Onnxruntime binding to do model inference are under [examples](examples).
 
 ## Credits
 
-Some of the logic of conversion is referenced from [go-onnxruntime](https://github.com/c3sr/go-onnxruntime).
+Some of the logic of conversion is referenced from https://github.com/c3sr/go-onnxruntime.

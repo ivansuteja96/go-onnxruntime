@@ -37,13 +37,13 @@ type (
 		DeviceID              int
 		CudnnConvAlgoSearch   CudnnConvAlgoSearch
 		GPUMemorylimit        int
-		ArenaExtendStrategy   int
+		ArenaExtendStrategy   bool
 		DoCopyInDefaultStream bool
 		HasUserComputeStream  bool
 	}
 )
 
-// NewORTEnv
+// NewORTEnv Create onnxruntime environment
 func NewORTEnv(loggingLevel ORTLoggingLevel, logEnv string) (ortEnv *ORTEnv) {
 	cLogEnv := C.CString(logEnv)
 	ortEnv = &ORTEnv{
@@ -52,12 +52,12 @@ func NewORTEnv(loggingLevel ORTLoggingLevel, logEnv string) (ortEnv *ORTEnv) {
 	return ortEnv
 }
 
-// NewORTSessionOptions return empty ort session options.
+// NewORTSessionOptions return empty onnxruntime session options.
 func NewORTSessionOptions() *ORTSessionOptions {
 	return &ORTSessionOptions{sessOpts: C.ORTSessionOptions_New()}
 }
 
-// NewORTSession return new ort session
+// NewORTSession return new onnxruntime session
 func NewORTSession(ortEnv *ORTEnv, modelLocation string, sessionOptions *ORTSessionOptions) (ortSession *ORTSession, err error) {
 	if ortEnv == nil {
 		return ortSession, fmt.Errorf("error nil ort env")
@@ -79,7 +79,7 @@ func NewORTSession(ortEnv *ORTEnv, modelLocation string, sessionOptions *ORTSess
 	return ortSession, nil
 }
 
-// AppendCudaDevice append cuda device to the session options.
+// AppendExecutionProviderCUDA append cuda device to the session options.
 func (so ORTSessionOptions) AppendExecutionProviderCUDA(cudaOptions CudaOptions) {
 	var intDoCopyInDefaultStream int
 	if cudaOptions.DoCopyInDefaultStream {
@@ -90,11 +90,16 @@ func (so ORTSessionOptions) AppendExecutionProviderCUDA(cudaOptions CudaOptions)
 	if cudaOptions.HasUserComputeStream {
 		intHasUserComputeStream = 1
 	}
+
+	var intArenaExtendStrategy int
+	if cudaOptions.ArenaExtendStrategy {
+		intArenaExtendStrategy = 1
+	}
 	C.ORTSessionOptions_AppendExecutionProvider_CUDA(so.sessOpts, C.CudaOptions{
 		device_id:                 C.int(cudaOptions.DeviceID),
 		cudnn_conv_algo_search:    C.int(cudaOptions.CudnnConvAlgoSearch),
 		gpu_mem_limit:             C.int(cudaOptions.GPUMemorylimit),
-		arena_extend_strategy:     C.int(cudaOptions.ArenaExtendStrategy),
+		arena_extend_strategy:     C.int(intArenaExtendStrategy),
 		do_copy_in_default_stream: C.int(intDoCopyInDefaultStream),
 		has_user_compute_stream:   C.int(intHasUserComputeStream),
 	})
@@ -252,6 +257,7 @@ func newTensorVector(tv TensorValue) (ctv C.TensorVector, err error) {
 	return
 }
 
+// cTensorVectorToGo convert C.TensorVector to Go Value
 func cTensorVectorToGo(cVal C.TensorVector) (goVal interface{}, shape []int64, err error) {
 	cShapeValue := unsafe.Pointer(cVal.shape.val)
 	shape = make([]int64, int64(cVal.shape.length))
@@ -343,6 +349,7 @@ func cTensorVectorToGo(cVal C.TensorVector) (goVal interface{}, shape []int64, e
 	return
 }
 
+// Predict do prediction from input data
 func (ortSession *ORTSession) Predict(inputTensorValues []TensorValue) (result []TensorValue, err error) {
 	if ortSession == nil {
 		return result, fmt.Errorf("error nil ortSession")
