@@ -16,7 +16,7 @@ The binding requires Onnxruntime C++ and Go 1.14++.
 
 The Go binding for Onnxruntime C++ API in this repository is built based on Onnxruntime v1.11.0.
 
-To install Onnxruntime C++ on your system, you can go to [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.11.0) and download the assets depends on your system (linux/mac/windows).
+To install Onnxruntime C++ on your system, you can go to [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.11.0) and download the assets depends on your system (linux/mac).
 
 The Onnxruntime C++ libraries are expected to be under `/usr/local/lib`.
 
