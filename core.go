@@ -18,7 +18,7 @@ type (
 		sessOpts C.ORTSessionOptions
 	}
 	ORTSession struct {
-		sess C.struct_ORTSession
+		sess *C.struct_ORTSession
 	}
 	ORTEnv struct {
 		env C.ORTEnv
@@ -49,7 +49,13 @@ func NewORTEnv(loggingLevel ORTLoggingLevel, logEnv string) (ortEnv *ORTEnv) {
 	ortEnv = &ORTEnv{
 		env: C.ORTEnv_New(C.int(int(loggingLevel)), cLogEnv),
 	}
+	C.free(unsafe.Pointer(cLogEnv))
 	return ortEnv
+}
+
+func (o *ORTEnv) Close() error {
+	C.free(unsafe.Pointer(o.env))
+	return nil
 }
 
 // NewORTSessionOptions return empty onnxruntime session options.
@@ -57,26 +63,9 @@ func NewORTSessionOptions() *ORTSessionOptions {
 	return &ORTSessionOptions{sessOpts: C.ORTSessionOptions_New()}
 }
 
-// NewORTSession return new onnxruntime session
-func NewORTSession(ortEnv *ORTEnv, modelLocation string, sessionOptions *ORTSessionOptions) (ortSession *ORTSession, err error) {
-	if ortEnv == nil {
-		return ortSession, fmt.Errorf("error nil ort env")
-	}
-	if _, err = os.Stat(modelLocation); errors.Is(err, os.ErrNotExist) {
-		return
-	} else if fileExtension := filepath.Ext(modelLocation); fileExtension != ".onnx" {
-		err = errors.New("file isn't an onnx model")
-		return
-	}
-	if sessionOptions == nil {
-		return ortSession, fmt.Errorf("error nil ort session options")
-	}
-
-	cModelLocation := C.CString(modelLocation)
-	ortSession = &ORTSession{sess: C.ORTSession_New(ortEnv.env, cModelLocation, sessionOptions.sessOpts)}
-	C.free(unsafe.Pointer(cModelLocation))
-
-	return ortSession, nil
+func (so ORTSessionOptions) Close() error {
+	C.free(unsafe.Pointer(so.sessOpts))
+	return nil
 }
 
 // AppendExecutionProviderCUDA append cuda device to the session options.
@@ -103,6 +92,28 @@ func (so ORTSessionOptions) AppendExecutionProviderCUDA(cudaOptions CudaOptions)
 		do_copy_in_default_stream: C.int(intDoCopyInDefaultStream),
 		has_user_compute_stream:   C.int(intHasUserComputeStream),
 	})
+}
+
+// NewORTSession return new onnxruntime session
+func NewORTSession(ortEnv *ORTEnv, modelLocation string, sessionOptions *ORTSessionOptions) (ortSession *ORTSession, err error) {
+	if ortEnv == nil {
+		return ortSession, fmt.Errorf("error nil ort env")
+	}
+	if _, err = os.Stat(modelLocation); errors.Is(err, os.ErrNotExist) {
+		return
+	} else if fileExtension := filepath.Ext(modelLocation); fileExtension != ".onnx" {
+		err = errors.New("file isn't an onnx model")
+		return
+	}
+	if sessionOptions == nil {
+		return ortSession, fmt.Errorf("error nil ort session options")
+	}
+
+	cModelLocation := C.CString(modelLocation)
+	ortSession = &ORTSession{sess: C.ORTSession_New(ortEnv.env, cModelLocation, sessionOptions.sessOpts)}
+	C.free(unsafe.Pointer(cModelLocation))
+
+	return ortSession, nil
 }
 
 // newTensorVector generate C.TensorVector
@@ -387,4 +398,9 @@ func (ortSession *ORTSession) Predict(inputTensorValues []TensorValue) (result [
 	C.TensorVectors_Clear(output)
 
 	return result, nil
+}
+
+func (ortSession *ORTSession) Close() error {
+	C.ORTSession_Free(ortSession.sess)
+	return nil
 }

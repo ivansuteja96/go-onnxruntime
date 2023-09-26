@@ -55,10 +55,11 @@ typedef struct CudaOptions{
 } CudaOptions;
 
 ORTSessionOptions ORTSessionOptions_New();
-ORTSession ORTSession_New(ORTEnv ort_env,char* model_location, ORTSessionOptions session_options);
+ORTSession* ORTSession_New(ORTEnv ort_env,char* model_location, ORTSessionOptions session_options);
 void ORTSessionOptions_AppendExecutionProvider_CUDA(ORTSessionOptions session_options, CudaOptions cuda_options);
 ORTEnv ORTEnv_New(int logging_level, char* log_env);
-TensorVectors ORTSession_Predict(ORTSession session, ORTValues* ort_values_input);
+TensorVectors ORTSession_Predict(ORTSession* session, ORTValues* ort_values_input);
+void ORTSession_Free(ORTSession* session);
 ORTValues* ORTValues_New();
 void ORTValues_AppendTensor( TensorVector tensor_input, ORTValues* ort_values);
 void TensorVectors_Clear(TensorVectors tvs);

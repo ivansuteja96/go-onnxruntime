@@ -1,5 +1,5 @@
 # go-onnxruntime
-Unofficial Go binding for Onnxruntime C++ API.
+Unofficial C binding for Onnxruntime in Golang.
 This is used to perform onnx model inference in Go.
 
 ## Installation
@@ -14,7 +14,7 @@ The binding requires Onnxruntime C++ and Go 1.14++.
 
 ### Onnxruntime C++ Library
 
-The Go binding for Onnxruntime C++ API in this repository is built based on Onnxruntime v1.11.0.
+The C binding for Onnxruntime in Golang. This repository is built based on Onnxruntime v1.11.0.
 
 To install Onnxruntime C++ on your system, you can go to [onnxruntime](https://github.com/microsoft/onnxruntime/releases/tag/v1.11.0) and download the assets depends on your system (linux/mac).
 

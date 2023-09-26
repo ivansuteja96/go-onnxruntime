@@ -19,7 +19,7 @@ ORTEnv ORTEnv_New(int logging_level,char* log_env) {
 	return new Ort::Env(OrtLoggingLevel(logging_level),log_env);
 }
 
-ORTSession ORTSession_New(ORTEnv ort_env,char* model_location, ORTSessionOptions session_options){
+ORTSession* ORTSession_New(ORTEnv ort_env,char* model_location, ORTSessionOptions session_options){
     auto session = new Ort::Session(*ort_env, model_location, *session_options);
     Ort::AllocatorWithDefaultOptions allocator;
     size_t num_input_nodes = (*session).GetInputCount();
@@ -29,8 +29,15 @@ ORTSession ORTSession_New(ORTEnv ort_env,char* model_location, ORTSessionOptions
     // iterate over all input nodes
     for (int i = 0; i < num_input_nodes; i++) {
         char* input_name = (*session).GetInputName(i, allocator);
+        auto shapes = (*session).GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape();
         input_node_names[i] = input_name;
-        printf("Input %d : name=%s\n", i, input_name);
+        printf("Input %d : name=%s shape=", i, input_name);
+        for (size_t i = 0; i < shapes.size(); ++i) {
+            printf("%ld", shapes[i]);
+            if (i < shapes.size() - 1)
+                printf(",");
+        }
+        printf("\n");
     }
 
     size_t num_output_nodes = (*session).GetOutputCount();
@@ -40,11 +47,18 @@ ORTSession ORTSession_New(ORTEnv ort_env,char* model_location, ORTSessionOptions
     // iterate over all output nodes
     for (int i = 0; i < num_output_nodes; i++) {
         char* output_name = (*session).GetOutputName(i, allocator);
+        auto shapes = (*session).GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape();
         output_node_names[i] = output_name;
-        printf("Output %d : name=%s\n", i, output_name);
+        printf("Output %d : name=%s shape=", i, output_name);
+        for (size_t i = 0; i < shapes.size(); ++i) {
+            printf("%ld", shapes[i]);
+            if (i < shapes.size() - 1)
+                printf(",");
+        }
+        printf("\n");
     }
 
-    auto res = ORTSession{session, input_node_names,num_input_nodes, output_node_names, num_output_nodes};
+    auto res = new ORTSession{session, input_node_names,num_input_nodes, output_node_names, num_output_nodes};
     return res;
 }
 
@@ -153,9 +167,9 @@ void *ORTValue_GetTensorMutableData(Ort::Value& ort_value, size_t size){
     return res;
 }
 
-TensorVectors ORTSession_Predict(ORTSession session, ORTValues *ort_values_input){
+TensorVectors ORTSession_Predict(ORTSession* session, ORTValues *ort_values_input){
     // score model & input tensor, get back output tensor
-    auto output_tensors = (*session.session).Run(Ort::RunOptions{nullptr}, session.input_node_names, (*ort_values_input).data(), session.input_node_names_length, session.output_node_names, session.output_node_names_length);
+    auto output_tensors = (*session->session).Run(Ort::RunOptions{nullptr}, session->input_node_names, (*ort_values_input).data(), session->input_node_names_length, session->output_node_names, session->output_node_names_length);
     
     auto output_tensors_count = output_tensors.size();
     TensorVector* vector_tv  = (TensorVector*)realloc(vector_tv, output_tensors_count*sizeof(*vector_tv));
@@ -183,6 +197,12 @@ TensorVectors ORTSession_Predict(ORTSession session, ORTValues *ort_values_input
 
     TensorVectors tvs = {vector_tv, (int)output_tensors_count};
     return tvs;
+}
+
+void ORTSession_Free(ORTSession* session) {
+	free(session->input_node_names);
+	free(session->output_node_names);
+	free(session);
 }
 
 void TensorVectors_Clear(TensorVectors tvs){
