@@ -22,40 +22,57 @@ ORTEnv ORTEnv_New(int logging_level,char* log_env) {
 ORTSession* ORTSession_New(ORTEnv ort_env,char* model_location, ORTSessionOptions session_options){
     auto session = new Ort::Session(*ort_env, model_location, *session_options);
     Ort::AllocatorWithDefaultOptions allocator;
-    size_t num_input_nodes = (*session).GetInputCount();
+
+    size_t num_input_nodes = session->GetInputCount();
     char **input_node_names = NULL;
+    std::vector<Ort::AllocatedStringPtr> inputNodeNameAllocatedStrings;
     input_node_names = (char**)realloc(input_node_names, num_input_nodes*sizeof(*input_node_names));
 
     // iterate over all input nodes
     for (int i = 0; i < num_input_nodes; i++) {
-        char* input_name = (*session).GetInputName(i, allocator);
-        auto shapes = (*session).GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape();
-        input_node_names[i] = input_name;
-        printf("Input %d : name=%s shape=", i, input_name);
+        auto input_name = session->GetInputNameAllocated(i, allocator);
+        auto shapes = session->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape();
+        inputNodeNameAllocatedStrings.push_back(std::move(input_name));
+        input_node_names[i] = inputNodeNameAllocatedStrings.back().get();
+        int length = strlen(input_node_names[i]);
+        char* varDest = (char*)malloc((length+1) * sizeof(char));
+        memcpy(varDest,input_node_names[i], length+1);
+        input_node_names[i] = varDest;
+        printf("Input : %d, Name : %s, Shape : [", i, input_node_names[i]);
         for (size_t i = 0; i < shapes.size(); ++i) {
             printf("%ld", shapes[i]);
-            if (i < shapes.size() - 1)
+            if (i < shapes.size() - 1){
                 printf(",");
+            }else{
+                printf("]\n");
+            }
         }
-        printf("\n");
     }
 
-    size_t num_output_nodes = (*session).GetOutputCount();
+    size_t num_output_nodes = session->GetOutputCount();
     char **output_node_names = NULL;
+    std::vector<Ort::AllocatedStringPtr> outputNodeNameAllocatedStrings;
     output_node_names = (char**)realloc(output_node_names, num_output_nodes*sizeof(*output_node_names));
 
     // iterate over all output nodes
     for (int i = 0; i < num_output_nodes; i++) {
-        char* output_name = (*session).GetOutputName(i, allocator);
-        auto shapes = (*session).GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape();
-        output_node_names[i] = output_name;
-        printf("Output %d : name=%s shape=", i, output_name);
+        auto output_name = session->GetOutputNameAllocated(i, allocator);
+        auto shapes = session->GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape();
+        outputNodeNameAllocatedStrings.push_back(std::move(output_name));
+        output_node_names[i] = outputNodeNameAllocatedStrings.back().get();
+        int length = strlen(output_node_names[i]);
+        char* varDest = (char*)malloc((length+1) * sizeof(char));
+        memcpy(varDest,output_node_names[i], length+1);
+        output_node_names[i] = varDest;
+        printf("Output : %d, Name : %s, Shape : [", i, output_node_names[i]);
         for (size_t i = 0; i < shapes.size(); ++i) {
             printf("%ld", shapes[i]);
-            if (i < shapes.size() - 1)
+            if (i < shapes.size() - 1){
                 printf(",");
+            } else{
+                printf("]\n");
+            }
         }
-        printf("\n");
     }
 
     auto res = new ORTSession{session, input_node_names,num_input_nodes, output_node_names, num_output_nodes};
