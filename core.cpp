@@ -20,6 +20,12 @@ ORTEnv ORTEnv_New(int logging_level,char* log_env) {
 }
 
 ORTSession* ORTSession_New(ORTEnv ort_env,char* model_location, ORTSessionOptions session_options){
+     char* env_num_threads = std::getenv("ORT_NUM_THREADS");
+     if(env_num_threads) {
+       const int num_threads = std::stoi(env_num_threads);
+       (*session_options).SetIntraOpNumThreads(num_threads);
+     }
+  
     auto session = new Ort::Session(*ort_env, model_location, *session_options);
     Ort::AllocatorWithDefaultOptions allocator;
     size_t num_input_nodes = (*session).GetInputCount();
