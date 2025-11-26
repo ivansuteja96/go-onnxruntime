@@ -1,43 +1,28 @@
-#include "core.h"
+#include "core.hpp"
 
 ORTSessionOptions ORTSessionOptions_New() {
     return new Ort::SessionOptions();
-}
-
-void ORTSessionOptions_AppendExecutionProvider_CUDA(ORTSessionOptions session_options, CudaOptions cuda_options) {
-	OrtCUDAProviderOptions ort_cuda_options;
-    ort_cuda_options.device_id = cuda_options.device_id;
-    ort_cuda_options.cudnn_conv_algo_search = (OrtCudnnConvAlgoSearch)cuda_options.cudnn_conv_algo_search;
-    ort_cuda_options.gpu_mem_limit = cuda_options.gpu_mem_limit;
-    ort_cuda_options.arena_extend_strategy = cuda_options.arena_extend_strategy;
-    ort_cuda_options.do_copy_in_default_stream = cuda_options.do_copy_in_default_stream;
-    ort_cuda_options.has_user_compute_stream = cuda_options.has_user_compute_stream;
-    (*session_options).AppendExecutionProvider_CUDA(ort_cuda_options);
 }
 
 ORTEnv ORTEnv_New(int logging_level,char* log_env) {
 	return new Ort::Env(OrtLoggingLevel(logging_level),log_env);
 }
 
-ORTSession* ORTSession_New(ORTEnv ort_env,char* model_location, ORTSessionOptions session_options){
-     char* env_num_threads = std::getenv("ORT_NUM_THREADS");
-     if(env_num_threads) {
-       const int num_threads = std::stoi(env_num_threads);
-       (*session_options).SetIntraOpNumThreads(num_threads);
-     }
-  
+ORTSession* ORTSession_New(ORTEnv ort_env,char* model_location, ORTSessionOptions session_options){  
     auto session = new Ort::Session(*ort_env, model_location, *session_options);
     Ort::AllocatorWithDefaultOptions allocator;
-    size_t num_input_nodes = (*session).GetInputCount();
-    char **input_node_names = NULL;
-    input_node_names = (char**)realloc(input_node_names, num_input_nodes*sizeof(*input_node_names));
 
-    // iterate over all input nodes
-    for (int i = 0; i < num_input_nodes; i++) {
-        char* input_name = (*session).GetInputName(i, allocator);
+    size_t num_inputs = session->GetInputCount();
+    size_t num_outputs = session->GetOutputCount();
+
+    std::cout << "Num inputs: " << num_inputs << "\n";
+    std::cout << "Num outputs: " << num_outputs << "\n";
+
+    std::vector<std::string> input_names = session->GetInputNames();
+
+    for (size_t i = 0; i < input_names.size(); ++i) {
         auto shapes = (*session).GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape();
-        input_node_names[i] = input_name;
-        printf("Input %d : name=%s shape=", i, input_name);
+        printf("Input %ld : name=%s shape=", i, input_names[i].c_str());
         for (size_t i = 0; i < shapes.size(); ++i) {
             printf("%ld", shapes[i]);
             if (i < shapes.size() - 1)
@@ -46,16 +31,11 @@ ORTSession* ORTSession_New(ORTEnv ort_env,char* model_location, ORTSessionOption
         printf("\n");
     }
 
-    size_t num_output_nodes = (*session).GetOutputCount();
-    char **output_node_names = NULL;
-    output_node_names = (char**)realloc(output_node_names, num_output_nodes*sizeof(*output_node_names));
+    std::vector<std::string> output_names = session->GetOutputNames();
 
-    // iterate over all output nodes
-    for (int i = 0; i < num_output_nodes; i++) {
-        char* output_name = (*session).GetOutputName(i, allocator);
+    for (size_t i = 0; i < output_names.size(); ++i) {
         auto shapes = (*session).GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape();
-        output_node_names[i] = output_name;
-        printf("Output %d : name=%s shape=", i, output_name);
+        printf("Output %ld : name=%s shape=", i, output_names[i].c_str());
         for (size_t i = 0; i < shapes.size(); ++i) {
             printf("%ld", shapes[i]);
             if (i < shapes.size() - 1)
@@ -64,8 +44,17 @@ ORTSession* ORTSession_New(ORTEnv ort_env,char* model_location, ORTSessionOption
         printf("\n");
     }
 
-    auto res = new ORTSession{session, input_node_names,num_input_nodes, output_node_names, num_output_nodes};
+    auto res = new ORTSession{session, input_names, num_inputs, output_names, num_outputs};
     return res;
+}
+
+     
+void ORTSessionOptions_SetIntraOpNumThreads(ORTSessionOptions session_options, int num_threads) {
+    (*session_options).SetIntraOpNumThreads(num_threads);
+}
+
+void ORTSessionOptions_SetGraphOptimizationLevel(ORTSessionOptions session_options, int graph_optimization_level) {
+    (*session_options).SetGraphOptimizationLevel((GraphOptimizationLevel)2);
 }
 
 ORTValues* ORTValues_New(){
@@ -80,37 +69,37 @@ void ORTValues_AppendTensor(TensorVector tensor_input, ORTValues *ort_values){
         throw std::runtime_error(std::string("undefined data type detected in ORTValues_AppendTensor"));
         break;
     case ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
-        (*ort_values).emplace_back(Ort::Value::CreateTensor<float>(memory_info, (float*)tensor_input.val, tensor_input.length, (int64_t*)tensor_input.shape.val, (size_t)tensor_input.shape.length));
+        (*ort_values).push_back(std::move(Ort::Value::CreateTensor<float>(memory_info, (float*)tensor_input.val, tensor_input.length, (int64_t*)tensor_input.shape.val, (size_t)tensor_input.shape.length)));
         break;
     case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
-        (*ort_values).emplace_back(Ort::Value::CreateTensor<uint8_t>(memory_info, (uint8_t*)tensor_input.val, tensor_input.length, (int64_t*)tensor_input.shape.val, (size_t)tensor_input.shape.length));
+        (*ort_values).push_back(std::move(Ort::Value::CreateTensor<uint8_t>(memory_info, (uint8_t*)tensor_input.val, tensor_input.length, (int64_t*)tensor_input.shape.val, (size_t)tensor_input.shape.length)));
         break;
     case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8:
-        (*ort_values).emplace_back(Ort::Value::CreateTensor<int8_t>(memory_info, (int8_t*)tensor_input.val, tensor_input.length, (int64_t*)tensor_input.shape.val, (size_t)tensor_input.shape.length));
+        (*ort_values).push_back(std::move(Ort::Value::CreateTensor<int8_t>(memory_info, (int8_t*)tensor_input.val, tensor_input.length, (int64_t*)tensor_input.shape.val, (size_t)tensor_input.shape.length)));
         break;
     case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT16:
-        (*ort_values).emplace_back(Ort::Value::CreateTensor<uint16_t>(memory_info, (uint16_t*)(tensor_input.val), tensor_input.length, (int64_t*)tensor_input.shape.val, (size_t)tensor_input.shape.length));
+        (*ort_values).push_back(std::move(Ort::Value::CreateTensor<uint16_t>(memory_info, (uint16_t*)(tensor_input.val), tensor_input.length, (int64_t*)tensor_input.shape.val, (size_t)tensor_input.shape.length)));
         break;
     case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT16:
-        (*ort_values).emplace_back(Ort::Value::CreateTensor<int16_t>(memory_info, (int16_t*)(tensor_input.val), tensor_input.length, (int64_t*)tensor_input.shape.val, (size_t)tensor_input.shape.length));
+        (*ort_values).push_back(std::move(Ort::Value::CreateTensor<int16_t>(memory_info, (int16_t*)(tensor_input.val), tensor_input.length, (int64_t*)tensor_input.shape.val, (size_t)tensor_input.shape.length)));
         break;
     case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
-        (*ort_values).emplace_back(Ort::Value::CreateTensor<int32_t>(memory_info, (int32_t*)(tensor_input.val), tensor_input.length, (int64_t*)tensor_input.shape.val, (size_t)tensor_input.shape.length));
+        (*ort_values).push_back(std::move(Ort::Value::CreateTensor<int32_t>(memory_info, (int32_t*)(tensor_input.val), tensor_input.length, (int64_t*)tensor_input.shape.val, (size_t)tensor_input.shape.length)));
         break;
     case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:
-        (*ort_values).emplace_back(Ort::Value::CreateTensor<int64_t>(memory_info, (int64_t*)(tensor_input.val), tensor_input.length, (int64_t*)tensor_input.shape.val, (size_t)tensor_input.shape.length));
+        (*ort_values).push_back(std::move(Ort::Value::CreateTensor<int64_t>(memory_info, (int64_t*)(tensor_input.val), tensor_input.length, (int64_t*)tensor_input.shape.val, (size_t)tensor_input.shape.length)));
         break;
     case ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL:
-        (*ort_values).emplace_back(Ort::Value::CreateTensor<bool>(memory_info, (bool*)(tensor_input.val), tensor_input.length, (int64_t*)tensor_input.shape.val, (size_t)tensor_input.shape.length));
+        (*ort_values).push_back(std::move(Ort::Value::CreateTensor<bool>(memory_info, (bool*)(tensor_input.val), tensor_input.length, (int64_t*)tensor_input.shape.val, (size_t)tensor_input.shape.length)));
         break;
     case ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE:
-        (*ort_values).emplace_back(Ort::Value::CreateTensor<double>(memory_info, (double*)(tensor_input.val), tensor_input.length, (int64_t*)tensor_input.shape.val, (size_t)tensor_input.shape.length));
+        (*ort_values).push_back(std::move(Ort::Value::CreateTensor<double>(memory_info, (double*)(tensor_input.val), tensor_input.length, (int64_t*)tensor_input.shape.val, (size_t)tensor_input.shape.length)));
     break;
     case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32:
-        (*ort_values).emplace_back(Ort::Value::CreateTensor<uint32_t>(memory_info, (uint32_t*)(tensor_input.val), tensor_input.length, (int64_t*)tensor_input.shape.val, (size_t)tensor_input.shape.length));
+        (*ort_values).push_back(std::move(Ort::Value::CreateTensor<uint32_t>(memory_info, (uint32_t*)(tensor_input.val), tensor_input.length, (int64_t*)tensor_input.shape.val, (size_t)tensor_input.shape.length)));
     break;
     case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64:
-        (*ort_values).emplace_back(Ort::Value::CreateTensor<uint64_t>(memory_info, (uint64_t*)(tensor_input.val), tensor_input.length, (int64_t*)tensor_input.shape.val, (size_t)tensor_input.shape.length));
+        (*ort_values).push_back(std::move(Ort::Value::CreateTensor<uint64_t>(memory_info, (uint64_t*)(tensor_input.val), tensor_input.length, (int64_t*)tensor_input.shape.val, (size_t)tensor_input.shape.length)));
     break;
     default: // c++: FLOAT16; onnxruntime: COMPLEX64, COMPLEX128, BFLOAT16; TODO: Implement String method
       throw std::runtime_error(std::string("unsupported data type detected in ORTValues_AppendTensor"));
@@ -174,41 +163,60 @@ void *ORTValue_GetTensorMutableData(Ort::Value& ort_value, size_t size){
 }
 
 TensorVectors ORTSession_Predict(ORTSession* session, ORTValues *ort_values_input){
-    // score model & input tensor, get back output tensor
-    auto output_tensors = (*session->session).Run(Ort::RunOptions{nullptr}, session->input_node_names, (*ort_values_input).data(), session->input_node_names_length, session->output_node_names, session->output_node_names_length);
-    
-    auto output_tensors_count = output_tensors.size();
-    TensorVector* vector_tv  = (TensorVector*)realloc(vector_tv, output_tensors_count*sizeof(*vector_tv));
-    for (size_t i = 0; i< output_tensors_count;i++){
-        auto output_shape_vector = output_tensors[i].GetTensorTypeAndShapeInfo().GetShape();
-        auto element_type = output_tensors[i].GetTensorTypeAndShapeInfo().GetElementType();
+    Ort::MemoryInfo output_mem_info{"Cpu", OrtDeviceAllocator, 0,
+                                  OrtMemTypeDefault};
 
-        int output_length = 1;
-        auto output_shape_size = output_shape_vector.size();
-        for (int i=0;i<output_shape_size;i++){
-            output_length=output_length*output_shape_vector[i];
-        }
-        auto arr_result = ORTValue_GetTensorMutableData(output_tensors[i],(size_t)output_length);
-        
-        auto temp_output_shape_val =  output_shape_vector.data();
-        long *output_shape_val = NULL;
-        output_shape_val = (long*)realloc(output_shape_val, output_shape_size*sizeof(*output_shape_val));
-        for (int i = 0; i < output_shape_size; i++) {
-            output_shape_val[i] = (long)temp_output_shape_val[i];
-        }
-        LongVector output_shape = {output_shape_val, (int)output_shape_size};
-        TensorVector fv = {arr_result,element_type, output_shape, output_length};
-        vector_tv[i]=fv;
+    Ort::IoBinding binding(*session->session);
+
+    // Bind all inputs by name
+    for (size_t i = 0; i < session->num_inputs; ++i) {
+        binding.BindInput(session->input_names[i].c_str(),(*ort_values_input)[i]);
     }
 
-    TensorVectors tvs = {vector_tv, (int)output_tensors_count};
+    // Bind all outputs dynamically on CPU
+    for (size_t i = 0; i < session->num_outputs; ++i) {
+        binding.BindOutput(
+            session->output_names[i].c_str(),
+            output_mem_info
+        );
+    }
+
+    // ---------- 4. Run ----------
+    Ort::RunOptions run_opts;
+    (*session->session).Run(run_opts, binding);
+    
+    std::vector<Ort::Value> outputs = binding.GetOutputValues();
+
+    TensorVector* vector_tv  = (TensorVector*)realloc(vector_tv, outputs.size()*sizeof(*vector_tv));
+    for (size_t i = 0; i < outputs.size(); ++i) {
+            Ort::Value& out = outputs[i];
+            auto output_shape_vector = outputs[i].GetTensorTypeAndShapeInfo().GetShape();
+            auto element_type = outputs[i].GetTensorTypeAndShapeInfo().GetElementType();
+
+            int output_length = 1;
+            auto output_shape_size = output_shape_vector.size();
+            for (int i=0;i<output_shape_size;i++){
+                output_length=output_length*output_shape_vector[i];
+            }
+            auto arr_result = ORTValue_GetTensorMutableData(outputs[i],(size_t)output_length);
+
+            auto temp_output_shape_val =  output_shape_vector.data();
+            long *output_shape_val = NULL;
+            output_shape_val = (long*)realloc(output_shape_val, output_shape_size*sizeof(*output_shape_val));
+            for (int i = 0; i < output_shape_size; i++) {
+                output_shape_val[i] = (long)temp_output_shape_val[i];
+            }
+            LongVector output_shape = {output_shape_val, (int)output_shape_size};
+            TensorVector fv = {arr_result,element_type, output_shape, output_length};
+            vector_tv[i]=fv;
+    }
+
+    TensorVectors tvs = {vector_tv, (int)outputs.size()};
     return tvs;
 }
 
 void ORTSession_Free(ORTSession* session) {
-	free(session->input_node_names);
-	free(session->output_node_names);
-	free(session);
+	delete session;
 }
 
 void TensorVectors_Clear(TensorVectors tvs){

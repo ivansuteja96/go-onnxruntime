@@ -1,9 +1,9 @@
-FROM ubuntu:20.04
-LABEL maintainer="Ivan Suteja <ivan.suteja@tokopedia.com>"
+FROM ubuntu:24.04
+LABEL maintainer="Ivan Suteja <ivansuteja96.work@gmail.com>"
 
-ARG GO_VERSION=1.14.15
-ARG ONNXRUNTIME_VERSION=1.11.1
-ARG ONNX_VERSION=1.12.0
+ARG GO_VERSION=1.25.4
+ARG ONNXRUNTIME_VERSION=1.23.2
+ARG ONNX_VERSION=1.19.1
 
 # DEFINE ALL ENV
 ENV GOROOT=/usr/local/go
@@ -18,7 +18,7 @@ ENV TZ=Asia/Jakarta
 
 # UPDATE AND INSTALL ALL REQUIRED DEPENDECIES
 RUN apt-get update -y
-RUN apt-get install -y wget build-essential
+RUN apt-get install -y wget build-essential g++
 
 # INSTALL GO
 RUN cd /tmp && \
@@ -45,5 +45,5 @@ wget -O model.onnx https://github.com/onnx/onnx/raw/v${ONNX_VERSION}/onnx/backen
 COPY . $GOPATH/src/github.com/ivansuteja96/go-onnxruntime
 
 # RUN go-onnxruntime
-RUN cd $GOPATH/src/github.com/ivansuteja96/go-onnxruntime/examples && \
-    go run predict_example.go
+# RUN cd $GOPATH/src/github.com/ivansuteja96/go-onnxruntime/examples && \
+#     go run predict_example.go

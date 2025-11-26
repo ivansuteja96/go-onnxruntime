@@ -1,6 +1,8 @@
 #ifdef __cplusplus
 #include <onnxruntime_cxx_api.h>
 #include <vector>
+#include <string>
+#include <iostream>
 using namespace std;
 
 extern "C" {
@@ -9,24 +11,18 @@ extern "C" {
 
 #ifdef __cplusplus
 typedef Ort::SessionOptions* ORTSessionOptions;
-typedef struct ORTSession{
-    Ort::Session* session;
-    char** input_node_names;
-    size_t input_node_names_length;
-    char** output_node_names;
-    size_t output_node_names_length;
-} ORTSession;
+    typedef struct ORTSession{
+        Ort::Session* session;
+        std::vector<std::string> input_names;
+        size_t num_inputs;
+        std::vector<std::string> output_names;
+        size_t num_outputs;
+    } ORTSession;
 typedef Ort::Env* ORTEnv;
 typedef std::vector<Ort::Value> ORTValues;
 #else
 typedef void* ORTSessionOptions;
-typedef struct ORTSession{
-    void* session;
-    char** input_node_names;
-    char** output_node_names;
-    size_t input_node_names_length;
-    size_t output_node_names_length;
-} ORTSession;
+typedef struct ORTSession ORTSession;
 typedef void* ORTEnv;
 typedef void* ORTMemoryInfo;
 typedef void* ORTValues;
@@ -45,18 +41,11 @@ typedef struct TensorVectors{
     TensorVector* arr_vector;
     int length;
 } TensorVectors;
-typedef struct CudaOptions{
-    int device_id;
-    int cudnn_conv_algo_search;
-    int gpu_mem_limit;
-    int arena_extend_strategy;
-    int do_copy_in_default_stream;
-    int has_user_compute_stream;
-} CudaOptions;
 
 ORTSessionOptions ORTSessionOptions_New();
 ORTSession* ORTSession_New(ORTEnv ort_env,char* model_location, ORTSessionOptions session_options);
-void ORTSessionOptions_AppendExecutionProvider_CUDA(ORTSessionOptions session_options, CudaOptions cuda_options);
+void ORTSessionOptions_SetIntraOpNumThreads(ORTSessionOptions session_options, int num_threads);
+void ORTSessionOptions_SetGraphOptimizationLevel(ORTSessionOptions session_options, int graph_optimization_level);
 ORTEnv ORTEnv_New(int logging_level, char* log_env);
 TensorVectors ORTSession_Predict(ORTSession* session, ORTValues* ort_values_input);
 void ORTSession_Free(ORTSession* session);

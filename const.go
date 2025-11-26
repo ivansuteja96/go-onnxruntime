@@ -24,7 +24,8 @@ const (
 )
 
 const (
-	OrtCudnnConvAlgoSearchExhaustive CudnnConvAlgoSearch = iota // expensive exhaustive benchmarking using cudnnFindConvolutionForwardAlgorithmEx
-	OrtCudnnConvAlgoSearchHeuristic                             // lightweight heuristic based search using cudnnGetConvolutionForwardAlgorithm_v7
-	OrtCudnnConvAlgoSearchDefault                               // default algorithm using CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM
+	ORT_DISABLE_ALL     GraphOptimizationLevel = 0
+	ORT_ENABLE_BASIC                           = 1
+	ORT_ENABLE_EXTENDED                        = 2
+	ORT_ENABLE_ALL                             = 99
 )

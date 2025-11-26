@@ -12,6 +12,8 @@ import (
 func main() {
 	ortEnvDet := onnxruntime.NewORTEnv(onnxruntime.ORT_LOGGING_LEVEL_VERBOSE, "development")
 	ortDetSO := onnxruntime.NewORTSessionOptions()
+	ortDetSO.SetIntraOpNumThreads(8)
+	ortDetSO.SetGraphOptimizationLevel(onnxruntime.ORT_ENABLE_ALL)
 
 	detModel, err := onnxruntime.NewORTSession(ortEnvDet, "/tmp/model/model.onnx", ortDetSO)
 	if err != nil {

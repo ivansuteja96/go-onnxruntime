@@ -2,7 +2,7 @@ package onnxruntime
 
 /*
 #include <stdlib.h>
-#include "core.h"
+#include "core.hpp"
 */
 import "C"
 import (
@@ -28,19 +28,11 @@ type (
 	}
 	ORTLoggingLevel           int
 	OnnxTensorElementDataType int
-	CudnnConvAlgoSearch       int
 	TensorValue               struct {
 		Value interface{}
 		Shape []int64
 	}
-	CudaOptions struct {
-		DeviceID              int
-		CudnnConvAlgoSearch   CudnnConvAlgoSearch
-		GPUMemorylimit        int
-		ArenaExtendStrategy   bool
-		DoCopyInDefaultStream bool
-		HasUserComputeStream  bool
-	}
+	GraphOptimizationLevel int
 )
 
 // NewORTEnv Create onnxruntime environment
@@ -63,35 +55,19 @@ func NewORTSessionOptions() *ORTSessionOptions {
 	return &ORTSessionOptions{sessOpts: C.ORTSessionOptions_New()}
 }
 
-func (so ORTSessionOptions) Close() error {
+func (so *ORTSessionOptions) Close() error {
 	C.free(unsafe.Pointer(so.sessOpts))
 	return nil
 }
 
-// AppendExecutionProviderCUDA append cuda device to the session options.
-func (so ORTSessionOptions) AppendExecutionProviderCUDA(cudaOptions CudaOptions) {
-	var intDoCopyInDefaultStream int
-	if cudaOptions.DoCopyInDefaultStream {
-		intDoCopyInDefaultStream = 1
-	}
+// SetGraphOptimizationLevel set graph optimization level
+func (so *ORTSessionOptions) SetGraphOptimizationLevel(level GraphOptimizationLevel) {
+	C.ORTSessionOptions_SetGraphOptimizationLevel(so.sessOpts, C.int(level))
+}
 
-	var intHasUserComputeStream int
-	if cudaOptions.HasUserComputeStream {
-		intHasUserComputeStream = 1
-	}
-
-	var intArenaExtendStrategy int
-	if cudaOptions.ArenaExtendStrategy {
-		intArenaExtendStrategy = 1
-	}
-	C.ORTSessionOptions_AppendExecutionProvider_CUDA(so.sessOpts, C.CudaOptions{
-		device_id:                 C.int(cudaOptions.DeviceID),
-		cudnn_conv_algo_search:    C.int(cudaOptions.CudnnConvAlgoSearch),
-		gpu_mem_limit:             C.int(cudaOptions.GPUMemorylimit),
-		arena_extend_strategy:     C.int(intArenaExtendStrategy),
-		do_copy_in_default_stream: C.int(intDoCopyInDefaultStream),
-		has_user_compute_stream:   C.int(intHasUserComputeStream),
-	})
+// SetGraphOptimizationLevel set graph optimization level
+func (so *ORTSessionOptions) SetIntraOpNumThreads(numThreads int) {
+	C.ORTSessionOptions_SetIntraOpNumThreads(so.sessOpts, C.int(numThreads))
 }
 
 // NewORTSession return new onnxruntime session
